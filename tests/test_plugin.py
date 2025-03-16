@@ -1,8 +1,9 @@
 """Test plugin manager functionality."""
 
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import pytest
+from pathlib import Path
 
 from penkit.core.plugin import PenKitPlugin, PluginManager
 
@@ -123,38 +124,37 @@ def test_plugin_manager_unload_plugin() -> None:
 
 
 @patch("importlib.import_module")
-def test_plugin_discovery(mock_import_module) -> None:
+@patch("penkit.core.plugin.Path")
+def test_plugin_discovery(mock_path, mock_import_module) -> None:
     """Test plugin discovery."""
     # Mock the module that would be discovered
     mock_module = type("MockModule", (), {})
     mock_module.TestPlugin = TestPlugin
     mock_import_module.return_value = mock_module
 
+    # Setup mock path behavior
+    mock_modules_dir = MagicMock()
+    mock_path.return_value.parent.parent.__truediv__.return_value = mock_modules_dir
+    mock_modules_dir.exists.return_value = True
+    
+    # Create a mock item to simulate a module directory
+    mock_path_item = MagicMock()
+    mock_path_item.name = "test_module"
+    mock_path_item.is_dir.return_value = True
+    
+    # Setup the __truediv__ method to handle path / "__init__.py"
+    mock_init_py = MagicMock()
+    mock_init_py.exists.return_value = True
+    mock_path_item.__truediv__.return_value = mock_init_py
+    
+    # Set up the iterdir to return our mock path item
+    mock_modules_dir.iterdir.return_value = [mock_path_item]
+
     # Create a plugin manager
     manager = PluginManager()
-
-    # Mock the directory structure
-    with patch("pathlib.Path.iterdir") as mock_iterdir:
-        mock_path = type(
-            "MockPath",
-            (),
-            {
-                "name": "test_module",
-                "is_dir": lambda self: True,
-            },
-        )
-        mock_path.__truediv__ = lambda self, other: type(
-            "MockPath",
-            (),
-            {
-                "exists": lambda: True,
-            },
-        )
-
-        mock_iterdir.return_value = [mock_path]
-
-        # Discover plugins
-        manager._discover_internal_plugins()
+    
+    # Discover plugins
+    manager._discover_internal_plugins()
 
     # Verify the plugin was discovered
     assert "test_plugin" in manager.plugins
