@@ -117,7 +117,7 @@ class ScanResult(BaseModel):
     vulnerabilities_found: List[Vulnerability] = Field(default_factory=list)
     raw_output: Optional[str] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
-    
+
     def duration(self) -> Optional[float]:
         """Calculate scan duration in seconds.
 
@@ -127,7 +127,7 @@ class ScanResult(BaseModel):
         if self.end_time:
             return (self.end_time - self.start_time).total_seconds()
         return None
-    
+
     def is_complete(self) -> bool:
         """Check if the scan is complete.
 
@@ -165,7 +165,7 @@ class ToolResult(BaseModel):
     stdout: Optional[str] = None
     stderr: Optional[str] = None
     parsed_result: Optional[Dict[str, Any]] = None
-    
+
     def as_dict(self) -> Dict[str, Any]:
         """Convert to dictionary.
 
@@ -179,7 +179,9 @@ class ToolResult(BaseModel):
             "start_time": self.start_time.isoformat(),
             "end_time": self.end_time.isoformat() if self.end_time else None,
             "exit_code": self.exit_code,
-            "stdout": self.stdout[:200] + "..." if self.stdout and len(self.stdout) > 200 else self.stdout,
+            "stdout": self.stdout[:200] + "..."
+            if self.stdout and len(self.stdout) > 200
+            else self.stdout,
             "stderr": self.stderr,
             "parsed_result": self.parsed_result,
         }

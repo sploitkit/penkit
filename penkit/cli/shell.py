@@ -55,7 +55,7 @@ class PenKitCompleter(Completer):
         """
         word = document.get_word_before_cursor()
         text = document.text_before_cursor.lstrip()
-        
+
         # Complete commands
         if not text or " " not in text:
             for command in self.commands:
@@ -66,11 +66,11 @@ class PenKitCompleter(Completer):
                         display=command,
                         display_meta=self.commands[command],
                     )
-        
+
         # Complete arguments based on command
         else:
             command = text.split()[0]
-            
+
             # Complete module names for 'use' command
             if command == "use":
                 for module in self.shell.plugin_manager.get_all_plugins():
@@ -82,7 +82,7 @@ class PenKitCompleter(Completer):
                             display=module_name,
                             display_meta=module.description,
                         )
-            
+
             # Complete option names for 'set' command
             elif command == "set" and self.shell.current_module:
                 options = self.shell.current_module.get_options()
@@ -97,12 +97,12 @@ class PenKitCompleter(Completer):
                                 display=option_name,
                                 display_meta=str(options[option_name]),
                             )
-            
+
             # Complete 'show' command arguments
             elif command == "show":
                 show_args = ["modules", "options"]
                 arg_prefix = text.split()[1] if len(text.split()) > 1 else ""
-                
+
                 for arg in show_args:
                     if arg.startswith(arg_prefix):
                         yield Completion(
@@ -130,11 +130,11 @@ class PenKitShell:
         self.current_module: Optional[Any] = None
         self.console = Console()
         self.debug_mode = config.get("debug", False)
-        
+
         # Create history file directory if it doesn't exist
         history_dir = Path.home() / ".penkit"
         history_dir.mkdir(exist_ok=True)
-        
+
         # Initialize session with prompt_toolkit
         self.session = PromptSession(
             history=FileHistory(str(history_dir / "history")),
@@ -142,7 +142,7 @@ class PenKitShell:
             completer=PenKitCompleter(self),
             style=Style.from_dict({"prompt": "ansigreen bold"}),
         )
-        
+
         # Create a session
         self.penkit_session = Session(name="default", path=self.workdir)
 
@@ -168,24 +168,28 @@ class PenKitShell:
         """
         if command == "exit" or command == "quit":
             return False
-        
+
         elif command == "help":
             self._show_help()
-        
+
         elif command == "use":
             if not args:
                 self.console.print("[bold red]Error: Missing module name[/bold red]")
                 return True
-            
+
             module_name = args[0]
             plugin = self.plugin_manager.get_plugin(module_name)
-            
+
             if plugin:
                 self.current_module = plugin
-                self.console.print(f"[bold green]Using module: {module_name}[/bold green]")
+                self.console.print(
+                    f"[bold green]Using module: {module_name}[/bold green]"
+                )
             else:
-                self.console.print(f"[bold red]Module not found: {module_name}[/bold red]")
-        
+                self.console.print(
+                    f"[bold red]Module not found: {module_name}[/bold red]"
+                )
+
         elif command == "show":
             if not args or args[0] == "modules":
                 self._show_modules()
@@ -193,7 +197,7 @@ class PenKitShell:
                 self._show_options()
             else:
                 self.console.print("[bold red]Invalid argument for 'show'[/bold red]")
-        
+
         elif command == "set":
             if not self.current_module:
                 self.console.print("[bold red]No module selected[/bold red]")
@@ -202,7 +206,7 @@ class PenKitShell:
             else:
                 option = args[0]
                 value = " ".join(args[1:])
-                
+
                 # Convert value to appropriate type based on current option value
                 current_value = self.current_module.options.get(option)
                 if current_value is not None:
@@ -214,48 +218,60 @@ class PenKitShell:
                             elif value.lower() in ("false", "no", "0", "off"):
                                 value = False
                             else:
-                                self.console.print(f"[bold yellow]Warning: Converting '{value}' to boolean[/bold yellow]")
+                                self.console.print(
+                                    f"[bold yellow]Warning: Converting '{value}' to boolean[/bold yellow]"
+                                )
                                 value = bool(value)
                         elif isinstance(current_value, int):
                             value = int(value)
                         elif isinstance(current_value, float):
                             value = float(value)
                     except (ValueError, TypeError):
-                        self.console.print(f"[bold yellow]Warning: Could not convert '{value}' to {type(current_value).__name__}[/bold yellow]")
-                
+                        self.console.print(
+                            f"[bold yellow]Warning: Could not convert '{value}' to {type(current_value).__name__}[/bold yellow]"
+                        )
+
                 # Set the option value
                 if self.current_module.set_option(option, value):
                     self.console.print(f"[green]Set {option} -> {value}[/green]")
                 else:
                     self.console.print(f"[bold red]Unknown option: {option}[/bold red]")
-        
+
         elif command == "run":
             if not self.current_module:
                 self.console.print("[bold red]No module selected[/bold red]")
             else:
                 try:
-                    self.console.print(f"[bold]Running module: {self.current_module.name}[/bold]")
+                    self.console.print(
+                        f"[bold]Running module: {self.current_module.name}[/bold]"
+                    )
                     result = self.current_module.run()
-                    self.console.print("[bold green]Module execution completed[/bold green]")
-                    
+                    self.console.print(
+                        "[bold green]Module execution completed[/bold green]"
+                    )
+
                     # Save result to current session
                     self.penkit_session.save_scan_result(
                         self.current_module.name, result
                     )
-                    
+
                     # Display result summary based on type
                     if isinstance(result, dict):
                         if "hosts" in result:
-                            self.console.print(f"[green]Found {len(result['hosts'])} hosts[/green]")
+                            self.console.print(
+                                f"[green]Found {len(result['hosts'])} hosts[/green]"
+                            )
                             for host in result["hosts"]:
                                 ip = host.get("ip_address", "Unknown")
                                 hostname = host.get("hostname", "")
-                                host_str = f"{ip}" + (f" ({hostname})" if hostname else "")
-                                
+                                host_str = f"{ip}" + (
+                                    f" ({hostname})" if hostname else ""
+                                )
+
                                 open_ports = host.get("open_ports", [])
                                 if open_ports:
                                     host_str += f" - {len(open_ports)} open ports"
-                                
+
                                 self.console.print(f"  {host_str}")
                     else:
                         self.console.print(f"Result: {result}")
@@ -265,25 +281,29 @@ class PenKitShell:
                     else:
                         error_msg = str(e)
                         if isinstance(e, PenKitException):
-                            self.console.print(f"[bold red]Error: {error_msg}[/bold red]")
+                            self.console.print(
+                                f"[bold red]Error: {error_msg}[/bold red]"
+                            )
                         else:
-                            self.console.print(f"[bold red]Error: Module execution failed: {error_msg}[/bold red]")
-        
+                            self.console.print(
+                                f"[bold red]Error: Module execution failed: {error_msg}[/bold red]"
+                            )
+
         elif command == "back":
             self.current_module = None
             self.console.print("[bold blue]Returned to main context[/bold blue]")
-        
+
         elif command == "config":
             self._handle_config_command(args)
-        
+
         else:
             self.console.print(f"[bold red]Unknown command: {command}[/bold red]")
-        
+
         return True
 
     def _handle_config_command(self, args: List[str]) -> None:
         """Handle the 'config' command.
-        
+
         Args:
             args: Command arguments
         """
@@ -293,32 +313,34 @@ class PenKitShell:
             for key, value in config.config.items():
                 self.console.print(f"  {key}: {value}")
             return
-        
+
         if args[0] == "get" and len(args) > 1:
             # Get specific config value
             key = args[1]
             value = config.get(key)
             self.console.print(f"{key} = {value}")
-        
+
         elif args[0] == "set" and len(args) > 2:
             # Set config value
             key = args[1]
             value = " ".join(args[2:])
-            
+
             # Try to convert value to appropriate type
             parsed_value = config._parse_value(value)
-            
+
             config.set(key, parsed_value)
             self.console.print(f"[green]Set {key} = {parsed_value}[/green]")
-        
+
         elif args[0] == "save":
             # Save config to file
             try:
                 config.save()
                 self.console.print("[green]Configuration saved[/green]")
             except Exception as e:
-                self.console.print(f"[bold red]Error saving configuration: {e}[/bold red]")
-        
+                self.console.print(
+                    f"[bold red]Error saving configuration: {e}[/bold red]"
+                )
+
         else:
             self.console.print("[bold red]Invalid config command[/bold red]")
             self.console.print("Usage:")
@@ -350,24 +372,26 @@ class PenKitShell:
         """Display options for the current module."""
         if not self.current_module:
             return
-        
-        self.console.print(f"[bold]Options for module: {self.current_module.name}[/bold]")
+
+        self.console.print(
+            f"[bold]Options for module: {self.current_module.name}[/bold]"
+        )
         options = self.current_module.get_options()
-        
+
         if not options:
             self.console.print("  No options available")
             return
-        
+
         # Calculate column width for nice formatting
         max_name_len = max(len(name) for name in options.keys())
-        
+
         for name, value in options.items():
             # Format value based on type
             if isinstance(value, bool):
                 value_str = "yes" if value else "no"
             else:
                 value_str = str(value)
-            
+
             # Add padding for alignment
             padded_name = name.ljust(max_name_len)
             self.console.print(f"  {padded_name} = {value_str}")
@@ -383,15 +407,17 @@ class PenKitShell:
                 line = line.strip()
                 if not line or line.startswith("#"):
                     continue
-                
+
                 self.console.print(f"[dim]> {line}[/dim]")
-                
+
                 try:
                     continue_shell = self.handle_input(line)
                     if not continue_shell:
                         break
                 except Exception as e:
-                    self.console.print(f"[bold red]Error at line {line_number}: {str(e)}[/bold red]")
+                    self.console.print(
+                        f"[bold red]Error at line {line_number}: {str(e)}[/bold red]"
+                    )
                     if self.debug_mode:
                         self.console.print_exception()
                     # Continue execution despite errors
@@ -408,7 +434,7 @@ class PenKitShell:
         user_input = user_input.strip()
         if not user_input:
             return True
-        
+
         try:
             args = shlex.split(user_input)
             command = args[0].lower()
@@ -422,9 +448,11 @@ class PenKitShell:
 
     def start(self) -> None:
         """Start the interactive shell."""
-        self.console.print("[bold blue]PenKit - Advanced Penetration Testing Toolkit[/bold blue]")
+        self.console.print(
+            "[bold blue]PenKit - Advanced Penetration Testing Toolkit[/bold blue]"
+        )
         self.console.print("Type 'help' for a list of commands\n")
-        
+
         while True:
             try:
                 user_input = self.session.prompt(self._get_prompt())
@@ -439,6 +467,8 @@ class PenKitShell:
                 if self.debug_mode:
                     self.console.print_exception()
                 else:
-                    self.console.print(f"\n[bold red]Unexpected error: {str(e)}[/bold red]")
-        
+                    self.console.print(
+                        f"\n[bold red]Unexpected error: {str(e)}[/bold red]"
+                    )
+
         self.console.print("\n[bold green]Goodbye![/bold green]")

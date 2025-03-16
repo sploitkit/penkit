@@ -22,8 +22,8 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
         logging.FileHandler(os.path.expanduser("~/.penkit/penkit.log")),
-        logging.StreamHandler()
-    ]
+        logging.StreamHandler(),
+    ],
 )
 logger = logging.getLogger("penkit")
 
@@ -60,7 +60,7 @@ def main(ctx: click.Context, workdir: str, config_file: str, debug: bool) -> Non
     # Update configuration
     config.set("debug", debug)
     config.set("workdir", workdir)
-    
+
     if config_file:
         try:
             config.load_from_file(Path(config_file))
@@ -78,10 +78,10 @@ def main(ctx: click.Context, workdir: str, config_file: str, debug: bool) -> Non
         try:
             # Initialize plugin manager
             plugin_manager = PluginManager()
-            
+
             # Load core plugins
             plugin_manager.discover_plugins()
-            
+
             # Create and start the shell
             shell = PenKitShell(plugin_manager, workdir=workdir)
             shell.start()
@@ -116,7 +116,7 @@ def plugins(ctx: click.Context, plugin_name: str = None) -> None:
                 console.print(f"[bold]{plugin.name}[/bold] - {plugin.description}")
                 console.print(f"Version: {plugin.version}")
                 console.print(f"Author: {plugin.author}")
-                
+
                 # Show plugin options
                 options = plugin.get_options()
                 if options:
@@ -130,13 +130,13 @@ def plugins(ctx: click.Context, plugin_name: str = None) -> None:
         else:
             # List all plugins
             plugins_list = plugin_manager.get_all_plugins()
-            
+
             if not plugins_list:
                 console.print("[yellow]No plugins found.[/yellow]")
                 return
-                
+
             console.print(f"[bold]Available Plugins ({len(plugins_list)}):[/bold]")
-            
+
             for plugin in plugins_list:
                 console.print(f"[bold]{plugin.name}[/bold] - {plugin.description}")
     except Exception as e:
@@ -147,14 +147,16 @@ def plugins(ctx: click.Context, plugin_name: str = None) -> None:
 
 
 @main.command()
-@click.argument("script_file", type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.argument(
+    "script_file", type=click.Path(exists=True, file_okay=True, dir_okay=False)
+)
 @click.pass_context
 def script(ctx: click.Context, script_file: str) -> None:
     """Run a script file with PenKit commands."""
     try:
         plugin_manager = PluginManager()
         plugin_manager.discover_plugins()
-        
+
         shell = PenKitShell(plugin_manager, workdir=ctx.obj["workdir"])
         shell.run_script(script_file)
     except Exception as e:
@@ -174,10 +176,10 @@ def config_cmd(ctx: click.Context, save: bool) -> None:
             config.save()
             console.print("[green]Configuration saved[/green]")
             return
-            
+
         # Display current configuration
         console.print("[bold]Current Configuration:[/bold]")
-        
+
         for key, value in config.config.items():
             if isinstance(value, dict):
                 console.print(f"[bold]{key}:[/bold]")
@@ -195,5 +197,5 @@ def config_cmd(ctx: click.Context, save: bool) -> None:
 if __name__ == "__main__":
     # Ensure ~/.penkit directory exists
     os.makedirs(os.path.expanduser("~/.penkit"), exist_ok=True)
-    
+
     main()

@@ -24,34 +24,34 @@ class PenKitPlugin:
     description: str = "Base plugin class"
     version: str = "0.1.0"
     author: str = "PenKit Team"
-    
+
     def __init__(self) -> None:
         """Initialize the plugin."""
         self.options: Dict[str, Any] = {}
-    
+
     def setup(self) -> None:
         """Set up the plugin. Called when the plugin is loaded."""
         pass
-    
+
     def cleanup(self) -> None:
         """Clean up the plugin. Called when the plugin is unloaded."""
         pass
-    
+
     def get_options(self) -> Dict[str, Any]:
         """Get the plugin options.
-        
+
         Returns:
             Dictionary of options
         """
         return self.options
-    
+
     def set_option(self, option: str, value: Any) -> bool:
         """Set a plugin option.
-        
+
         Args:
             option: Option name
             value: Option value
-            
+
         Returns:
             True if successful, False otherwise
         """
@@ -59,17 +59,17 @@ class PenKitPlugin:
             self.options[option] = value
             return True
         return False
-    
+
     def run(self, *args: Any, **kwargs: Any) -> Any:
         """Run the plugin.
-        
+
         Args:
             *args: Positional arguments
             **kwargs: Keyword arguments
-            
+
         Returns:
             Plugin result
-            
+
         Raises:
             NotImplementedError: If the plugin does not implement run method
         """
@@ -78,20 +78,20 @@ class PenKitPlugin:
 
 class HookSpecs:
     """Hook specifications for PenKit plugins."""
-    
+
     @hookspec
     def register_plugin(self) -> List[Type[PenKitPlugin]]:
         """Register plugin classes.
-        
+
         Returns:
             List of plugin classes
         """
         pass
-    
+
     @hookspec
     def plugin_loaded(self, plugin: PenKitPlugin) -> None:
         """Called when a plugin is loaded.
-        
+
         Args:
             plugin: The loaded plugin instance
         """
@@ -100,59 +100,65 @@ class HookSpecs:
 
 class PluginManager:
     """Manager for PenKit plugins."""
-    
+
     def __init__(self) -> None:
         """Initialize the plugin manager."""
         self.manager = pluggy.PluginManager("penkit")
         self.hooks = HookSpecs()
         self.manager.add_hookspecs(self.hooks)
-        
+
         # Dictionary to store loaded plugins by name
         self.plugins: Dict[str, PenKitPlugin] = {}
-    
+
     def register_plugin(self, plugin_class: Type[PenKitPlugin]) -> None:
         """Register and initialize a plugin.
-        
+
         Args:
             plugin_class: The plugin class to register
-            
+
         Raises:
             PluginError: If plugin registration fails
         """
         try:
             # Validate required plugin attributes
             if not plugin_class.name or plugin_class.name == "base_plugin":
-                raise PluginError(f"Plugin {plugin_class.__name__} has invalid name: {plugin_class.name}")
-            
+                raise PluginError(
+                    f"Plugin {plugin_class.__name__} has invalid name: {plugin_class.name}"
+                )
+
             if plugin_class.name in self.plugins:
-                raise PluginError(f"Plugin name conflict: {plugin_class.name} is already registered")
-                
+                raise PluginError(
+                    f"Plugin name conflict: {plugin_class.name} is already registered"
+                )
+
             plugin = plugin_class()
             self.plugins[plugin.name] = plugin
             plugin.setup()
         except Exception as e:
-            raise PluginError(f"Failed to register plugin {plugin_class.__name__}: {str(e)}") from e
-    
+            raise PluginError(
+                f"Failed to register plugin {plugin_class.__name__}: {str(e)}"
+            ) from e
+
     def discover_plugins(self) -> None:
         """Discover and load plugins from various sources."""
         # 1. Look for built-in plugins in the modules directory
         self._discover_internal_plugins()
-        
+
         # 2. Look for installed plugins via entry points
         self._discover_entry_point_plugins()
-        
+
         # 3. Look for plugins in user plugins directory
         self._discover_user_plugins()
-    
+
     def _discover_internal_plugins(self) -> None:
         """Discover internal plugins from the modules directory."""
         modules_dir = Path(__file__).parent.parent / "modules"
         if not modules_dir.exists():
             return
-        
+
         # Add the modules directory to sys.path temporarily
         sys.path.insert(0, str(modules_dir.parent.parent))
-        
+
         try:
             for item in modules_dir.iterdir():
                 if item.is_dir() and (item / "__init__.py").exists():
@@ -166,7 +172,7 @@ class PluginManager:
             # Remove the added path
             if sys.path[0] == str(modules_dir.parent.parent):
                 sys.path.pop(0)
-    
+
     def _discover_entry_point_plugins(self) -> None:
         """Discover plugins registered via entry points."""
         try:
@@ -180,16 +186,16 @@ class PluginManager:
                     print(f"Failed to load plugin {entry_point.name}: {e}")
         except Exception as e:
             print(f"Failed to discover entry point plugins: {e}")
-    
+
     def _discover_user_plugins(self) -> None:
         """Discover plugins from user plugins directory."""
         user_plugin_dir = Path.home() / ".penkit" / "plugins"
         if not user_plugin_dir.exists():
             return
-        
+
         # Add the user plugin directory to sys.path temporarily
         sys.path.insert(0, str(user_plugin_dir))
-        
+
         try:
             for item in user_plugin_dir.iterdir():
                 if item.is_dir() and (item / "__init__.py").exists():
@@ -202,10 +208,10 @@ class PluginManager:
             # Remove the added path
             if sys.path[0] == str(user_plugin_dir):
                 sys.path.pop(0)
-    
+
     def _register_plugins_from_module(self, module: Any) -> None:
         """Register plugins from a module.
-        
+
         Args:
             module: The module to scan for plugins
         """
@@ -220,32 +226,32 @@ class PluginManager:
                     self.register_plugin(item)
                 except PluginError as e:
                     print(f"Warning: {e}")
-    
+
     def get_plugin(self, name: str) -> Optional[PenKitPlugin]:
         """Get a plugin by name.
-        
+
         Args:
             name: The plugin name
-            
+
         Returns:
             The plugin instance if found, None otherwise
         """
         return self.plugins.get(name)
-    
+
     def get_all_plugins(self) -> List[PenKitPlugin]:
         """Get all loaded plugins.
-        
+
         Returns:
             List of all plugin instances
         """
         return list(self.plugins.values())
-    
+
     def unload_plugin(self, name: str) -> bool:
         """Unload a plugin by name.
-        
+
         Args:
             name: The plugin name
-            
+
         Returns:
             True if successful, False otherwise
         """

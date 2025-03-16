@@ -12,7 +12,7 @@ class PortScannerPlugin(PenKitPlugin):
     description = "Scan for open ports on target systems"
     version = "0.1.0"
     author = "PenKit Team"
-    
+
     def __init__(self) -> None:
         """Initialize the port scanner plugin."""
         super().__init__()
@@ -25,35 +25,37 @@ class PortScannerPlugin(PenKitPlugin):
             "service_detection": True,
             "timeout": 600,  # 10 minutes timeout
         }
-        
+
         # Initialize the Nmap integration
         self.nmap = NmapIntegration()
-    
+
     def setup(self) -> None:
         """Set up the plugin."""
         # Check if Nmap is available
         if not self.nmap.binary_path and not self.nmap.use_container:
-            print("Warning: Nmap is not available. Port scanning functionality will be limited.")
-    
+            print(
+                "Warning: Nmap is not available. Port scanning functionality will be limited."
+            )
+
     def run(self) -> dict:
         """Run the port scanner.
-        
+
         Returns:
             Scan results
-        
+
         Raises:
             ModuleError: If the scan fails
         """
         target = self.options.get("target")
         if not target:
             raise ModuleError("Target must be specified")
-        
+
         ports = self.options.get("ports")
         scan_type = self.options.get("scan_type")
         timing = self.options.get("timing")
         service_detection = self.options.get("service_detection")
         timeout = self.options.get("timeout")
-        
+
         # Build scan options
         scan_options = {
             "ports": ports,
@@ -61,7 +63,7 @@ class PortScannerPlugin(PenKitPlugin):
             "timing": timing,
             "timeout": timeout,
         }
-        
+
         # Add scan type flags
         if scan_type == "tcp":
             scan_args = ["-sT"]
@@ -71,11 +73,11 @@ class PortScannerPlugin(PenKitPlugin):
             scan_args = ["-sU"]
         else:
             scan_args = []
-        
+
         # Run the scan
         try:
             results = self.nmap.scan(target, *scan_args, **scan_options)
-            
+
             # Format output based on selected format
             output_format = self.options.get("output_format")
             if output_format == "minimal":
@@ -84,37 +86,36 @@ class PortScannerPlugin(PenKitPlugin):
                 return results
         except Exception as e:
             raise ModuleError(f"Port scan failed: {str(e)}")
-    
+
     def _format_minimal_output(self, results: dict) -> dict:
         """Format the output in a minimal format.
-        
+
         Args:
             results: Scan results
-            
+
         Returns:
             Formatted results
         """
-        minimal = {
-            "target": self.options.get("target"),
-            "hosts": []
-        }
-        
+        minimal = {"target": self.options.get("target"), "hosts": []}
+
         # Extract host and open port information
         for host in results.get("hosts", []):
             host_info = {
                 "ip": host.get("ip_address"),
                 "hostname": host.get("hostname"),
-                "open_ports": []
+                "open_ports": [],
             }
-            
+
             for port in host.get("open_ports", []):
                 if port.get("state") == "open":
-                    host_info["open_ports"].append({
-                        "port": port.get("port"),
-                        "service": port.get("service"),
-                        "protocol": port.get("protocol")
-                    })
-            
+                    host_info["open_ports"].append(
+                        {
+                            "port": port.get("port"),
+                            "service": port.get("service"),
+                            "protocol": port.get("protocol"),
+                        }
+                    )
+
             minimal["hosts"].append(host_info)
-        
+
         return minimal

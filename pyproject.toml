@@ -64,6 +64,8 @@ warn_redundant_casts = true
 warn_return_any = true
 warn_unused_ignores = true
 warn_unused_configs = true
+namespace_packages = true
+explicit_package_bases = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
