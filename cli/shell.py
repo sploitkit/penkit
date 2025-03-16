@@ -12,8 +12,8 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
 from rich.console import Console
 
-from penkit.core.plugin import PluginManager
-from penkit.core.session import Session
+from core.plugin import PluginManager
+from core.session import Session
 
 
 class PenKitCompleter(Completer):

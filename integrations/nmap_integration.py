@@ -4,8 +4,8 @@ import re
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Optional, Tuple
 
-from penkit.core.models import Host, HostStatus, Port
-from penkit.integrations.base import CommandBuilder, ToolIntegration
+from core.models import Host, HostStatus, Port
+from integrations.base import CommandBuilder, ToolIntegration
 
 
 class NmapIntegration(ToolIntegration):
@@ -18,11 +18,11 @@ class NmapIntegration(ToolIntegration):
     default_args = []
     container_image = "instrumentisto/nmap:latest"
     container_options = ["--net=host"]
+    version_pattern = re.compile(r"Nmap version ([0-9.]+)")
 
     def __init__(self) -> None:
         """Initialize the Nmap integration."""
         super().__init__()
-        self.version_pattern = re.compile(r"Nmap version ([0-9.]+)")
 
     def _get_version(self) -> str:
         """Get the Nmap version.

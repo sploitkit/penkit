@@ -1,7 +1,7 @@
 """Port scanner module for PenKit."""
 
-from penkit.core.plugin import PenKitPlugin
-from penkit.integrations.nmap_integration import NmapIntegration
+from core.plugin import PenKitPlugin
+from integrations.nmap_integration import NmapIntegration
 
 
 class PortScannerPlugin(PenKitPlugin):
