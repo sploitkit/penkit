@@ -8,7 +8,7 @@ from pathlib import Path
 from penkit.core.plugin import PenKitPlugin, PluginManager
 
 
-class TestPlugin(PenKitPlugin):
+class SamplePlugin(PenKitPlugin):
     """Test plugin class."""
 
     name = "test_plugin"
@@ -39,7 +39,7 @@ def test_plugin_registration() -> None:
     manager = PluginManager()
 
     # Register a plugin
-    manager.register_plugin(TestPlugin)
+    manager.register_plugin(SamplePlugin)
 
     # Verify the plugin was registered
     assert "test_plugin" in manager.plugins
@@ -50,7 +50,7 @@ def test_plugin_registration() -> None:
 def test_plugin_get_and_set_option() -> None:
     """Test getting and setting plugin options."""
     # Create a plugin
-    plugin = TestPlugin()
+    plugin = SamplePlugin()
 
     # Verify default options
     assert plugin.get_options() == {
@@ -76,7 +76,7 @@ def test_plugin_manager_get_plugin() -> None:
     manager = PluginManager()
 
     # Register a plugin
-    manager.register_plugin(TestPlugin)
+    manager.register_plugin(SamplePlugin)
 
     # Get the plugin by name
     plugin = manager.get_plugin("test_plugin")
@@ -94,7 +94,7 @@ def test_plugin_manager_get_all_plugins() -> None:
     manager = PluginManager()
 
     # Register a plugin
-    manager.register_plugin(TestPlugin)
+    manager.register_plugin(SamplePlugin)
 
     # Get all plugins
     plugins = manager.get_all_plugins()
@@ -108,7 +108,7 @@ def test_plugin_manager_unload_plugin() -> None:
     manager = PluginManager()
 
     # Register a plugin
-    manager.register_plugin(TestPlugin)
+    manager.register_plugin(SamplePlugin)
 
     # Unload the plugin
     success = manager.unload_plugin("test_plugin")
@@ -129,7 +129,7 @@ def test_plugin_discovery(mock_path, mock_import_module) -> None:
     """Test plugin discovery."""
     # Mock the module that would be discovered
     mock_module = type("MockModule", (), {})
-    mock_module.TestPlugin = TestPlugin
+    mock_module.SamplePlugin = SamplePlugin
     mock_import_module.return_value = mock_module
 
     # Setup mock path behavior
