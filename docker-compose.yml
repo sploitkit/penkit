@@ -1,0 +1,25 @@
+version: '3'
+
+services:
+  penkit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: penkit:latest
+    container_name: penkit
+    network_mode: host  # Required for many security tools
+    cap_add:  # Additional capabilities for security tools
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - ./:/app  # Mount the current directory for development
+      - penkit_data:/home/penkit/.penkit  # Persistent storage for PenKit data
+    environment:
+      - PYTHONUNBUFFERED=1
+    # Override the default command to start the interactive shell
+    command: []
+    stdin_open: true  # Keep STDIN open for interactive use
+    tty: true  # Allocate a TTY for interactive use
+
+volumes:
+  penkit_data:  # Persistent volume for PenKit data

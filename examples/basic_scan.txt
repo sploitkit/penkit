@@ -1,0 +1,39 @@
+# PenKit Example Script - Basic Network Scan
+# This script performs a basic network reconnaissance
+
+# Create a new session
+sessions create basic_recon
+
+# Use the port scanner module
+use port_scanner
+
+# Set target (replace with your target)
+set target 192.168.1.0/24
+
+# Configure scan options
+set ports 22,80,443,3389,8080
+set scan_type tcp
+set service_detection true
+set timing 4
+
+# Run the scanner
+run
+
+# Back to main context
+back
+
+# Use vulnerability scanner (once implemented)
+# use vuln_scanner
+# set target 192.168.1.0/24
+# set scan_type quick
+# run
+# back
+
+# Generate a report (once implemented)
+# use report_generator
+# set format html
+# set output /tmp/scan_report.html
+# run
+
+# Exit the script
+exit
