@@ -2,7 +2,7 @@
 name = "penkit"
 version = "0.1.0"
 description = "Advanced Open-Source Penetration Testing Toolkit"
-authors = ["Rasoul sploit@yahoo.com"]
+authors = ["Rasoul Faramarzi <sploit@yahoo.com>"]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/sploitkit/penkit"
