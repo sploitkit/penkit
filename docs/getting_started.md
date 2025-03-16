@@ -46,8 +46,16 @@ If you prefer to use Docker:
 
 ### Starting the Interactive Shell
 
+Use the run script for the easiest experience:
+
 ```bash
-penkit
+./run.sh
+```
+
+Or manually run with poetry:
+
+```bash
+poetry run python -m penkit.cli.main
 ```
 
 This will launch the interactive shell where you can run commands.
@@ -55,7 +63,7 @@ This will launch the interactive shell where you can run commands.
 ### Getting Help
 
 ```bash
-penkit --help
+./run.sh --help
 ```
 
 Or within the shell:
@@ -103,7 +111,7 @@ show options
 You can run a script file with PenKit commands:
 
 ```bash
-penkit script /path/to/script.txt
+./run.sh script /path/to/script.txt
 ```
 
 Example script content:
@@ -114,20 +122,46 @@ set ports 80,443,8080
 run
 ```
 
+### Configuration
+
+PenKit uses a global configuration system that can be accessed from the CLI or the shell:
+
+From the shell:
+```
+config
+config get tools.nmap.use_container
+config set tools.nmap.use_container true
+config save
+```
+
+From the CLI:
+```bash
+./run.sh config
+```
+
 ## Next Steps
 
-- Check out the [module documentation](./modules.md) for details on available modules
-- Learn how to [create custom modules](./custom_modules.md)
-- Explore [advanced usage patterns](./advanced_usage.md)
+- Check out the module documentation for details on available modules
+- Learn how to create custom modules in the development guide
+- Explore advanced usage patterns
 
 ## Troubleshooting
 
 ### Common Issues
 
-- **Tool not found**: Make sure the required tools are installed and in your PATH
+- **Tool not found**: Make sure the required tools are installed and in your PATH, or set `tools.<tool>.use_container` to `true` to use the Docker container
 - **Permission denied**: Some tools require elevated privileges. Try running with sudo or using the Docker image
+- **Import errors**: Make sure you're running PenKit using the provided run.sh script or through poetry
+
+### Debug Mode
+
+For more detailed error messages, run PenKit in debug mode:
+
+```bash
+./run.sh --debug
+```
 
 ### Getting Support
 
 - Open an issue on GitHub
-- Check the troubleshooting guide in the documentation
+- Check the documentation for troubleshooting tips

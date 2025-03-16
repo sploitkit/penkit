@@ -1,5 +1,6 @@
 """Port scanner module for PenKit."""
 
+from penkit.core.exceptions import ModuleError
 from penkit.core.plugin import PenKitPlugin
 from penkit.integrations.nmap_integration import NmapIntegration
 
@@ -22,6 +23,7 @@ class PortScannerPlugin(PenKitPlugin):
             "timing": "4",
             "output_format": "normal",
             "service_detection": True,
+            "timeout": 600,  # 10 minutes timeout
         }
         
         # Initialize the Nmap integration
@@ -40,22 +42,24 @@ class PortScannerPlugin(PenKitPlugin):
             Scan results
         
         Raises:
-            ValueError: If target is not specified
+            ModuleError: If the scan fails
         """
         target = self.options.get("target")
         if not target:
-            raise ValueError("Target must be specified")
+            raise ModuleError("Target must be specified")
         
         ports = self.options.get("ports")
         scan_type = self.options.get("scan_type")
         timing = self.options.get("timing")
         service_detection = self.options.get("service_detection")
+        timeout = self.options.get("timeout")
         
         # Build scan options
         scan_options = {
             "ports": ports,
             "service_detection": service_detection,
             "timing": timing,
+            "timeout": timeout,
         }
         
         # Add scan type flags
@@ -69,14 +73,17 @@ class PortScannerPlugin(PenKitPlugin):
             scan_args = []
         
         # Run the scan
-        results = self.nmap.scan(target, *scan_args, **scan_options)
-        
-        # Format output based on selected format
-        output_format = self.options.get("output_format")
-        if output_format == "minimal":
-            return self._format_minimal_output(results)
-        else:
-            return results
+        try:
+            results = self.nmap.scan(target, *scan_args, **scan_options)
+            
+            # Format output based on selected format
+            output_format = self.options.get("output_format")
+            if output_format == "minimal":
+                return self._format_minimal_output(results)
+            else:
+                return results
+        except Exception as e:
+            raise ModuleError(f"Port scan failed: {str(e)}")
     
     def _format_minimal_output(self, results: dict) -> dict:
         """Format the output in a minimal format.

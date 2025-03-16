@@ -10,6 +10,8 @@ from typing import Any, Dict, List, Optional, Type
 
 import pluggy
 
+from penkit.core.exceptions import PluginError
+
 # Define the hook specification namespace
 hookspec = pluggy.HookspecMarker("penkit")
 hookimpl = pluggy.HookimplMarker("penkit")
@@ -67,6 +69,9 @@ class PenKitPlugin:
             
         Returns:
             Plugin result
+            
+        Raises:
+            NotImplementedError: If the plugin does not implement run method
         """
         raise NotImplementedError("Plugin does not implement run method")
 
@@ -110,10 +115,23 @@ class PluginManager:
         
         Args:
             plugin_class: The plugin class to register
+            
+        Raises:
+            PluginError: If plugin registration fails
         """
-        plugin = plugin_class()
-        self.plugins[plugin.name] = plugin
-        plugin.setup()
+        try:
+            # Validate required plugin attributes
+            if not plugin_class.name or plugin_class.name == "base_plugin":
+                raise PluginError(f"Plugin {plugin_class.__name__} has invalid name: {plugin_class.name}")
+            
+            if plugin_class.name in self.plugins:
+                raise PluginError(f"Plugin name conflict: {plugin_class.name} is already registered")
+                
+            plugin = plugin_class()
+            self.plugins[plugin.name] = plugin
+            plugin.setup()
+        except Exception as e:
+            raise PluginError(f"Failed to register plugin {plugin_class.__name__}: {str(e)}") from e
     
     def discover_plugins(self) -> None:
         """Discover and load plugins from various sources."""
@@ -198,7 +216,10 @@ class PluginManager:
                 and issubclass(item, PenKitPlugin)
                 and item is not PenKitPlugin
             ):
-                self.register_plugin(item)
+                try:
+                    self.register_plugin(item)
+                except PluginError as e:
+                    print(f"Warning: {e}")
     
     def get_plugin(self, name: str) -> Optional[PenKitPlugin]:
         """Get a plugin by name.
@@ -229,8 +250,12 @@ class PluginManager:
             True if successful, False otherwise
         """
         if name in self.plugins:
-            plugin = self.plugins[name]
-            plugin.cleanup()
-            del self.plugins[name]
-            return True
+            try:
+                plugin = self.plugins[name]
+                plugin.cleanup()
+                del self.plugins[name]
+                return True
+            except Exception as e:
+                print(f"Error unloading plugin {name}: {e}")
+                return False
         return False

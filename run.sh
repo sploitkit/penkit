@@ -21,6 +21,12 @@ if ! command -v poetry &> /dev/null; then
     exit 1
 fi
 
+# Create ~/.penkit directory if it doesn't exist
+if [ ! -d ~/.penkit ]; then
+    mkdir -p ~/.penkit
+    print_yellow "Created ~/.penkit directory"
+fi
+
 # Check if dependencies are installed
 if ! poetry check 2>/dev/null; then
     print_yellow "Installing dependencies..."
@@ -28,4 +34,5 @@ if ! poetry check 2>/dev/null; then
 fi
 
 # Run PenKit with Poetry
-poetry run python3 -m penkit.cli.main "$@"
+print_green "Starting PenKit..."
+poetry run python -m penkit.cli.main "$@"

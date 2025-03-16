@@ -4,6 +4,7 @@ import re
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Optional, Tuple
 
+from penkit.core.exceptions import IntegrationError, OutputParsingError
 from penkit.core.models import Host, HostStatus, Port
 from penkit.integrations.base import CommandBuilder, ToolIntegration
 
@@ -18,6 +19,7 @@ class NmapIntegration(ToolIntegration):
     default_args = []
     container_image = "instrumentisto/nmap:latest"
     container_options = ["--net=host"]
+    # Define version_pattern as class variable, not instance variable
     version_pattern = re.compile(r"Nmap version ([0-9.]+)")
 
     def __init__(self) -> None:
@@ -31,13 +33,13 @@ class NmapIntegration(ToolIntegration):
             Version string
             
         Raises:
-            ValueError: If version cannot be determined
+            IntegrationError: If version cannot be determined
         """
         if not self.binary_path:
             if self.use_container and self.container_image:
                 # For container-based tools, return a placeholder version
                 return "container:" + self.container_image
-            raise ValueError("Nmap binary not found")
+            raise IntegrationError("Nmap binary not found")
         
         result = super()._get_version()
         match = self.version_pattern.search(result)
@@ -59,17 +61,24 @@ class NmapIntegration(ToolIntegration):
                 - script: Script to run (e.g., "default")
                 - timing: Timing template (e.g., 4)
                 - output_xml: Path to save XML output
+                - timeout: Timeout in seconds (default: 600)
             
         Returns:
             Scan results
+            
+        Raises:
+            IntegrationError: If the scan fails
         """
+        if not target:
+            raise IntegrationError("Target is required for Nmap scan")
+        
         cmd_builder = CommandBuilder([self.binary_name if self.binary_path else "nmap"])
         
         # Add output format (XML for parsing)
         cmd_builder.add_flag("-oX", "-")
         
         # Add ports if specified
-        if "ports" in options:
+        if "ports" in options and options["ports"]:
             cmd_builder.add_flag("-p", options["ports"])
         
         # Add service detection
@@ -81,11 +90,11 @@ class NmapIntegration(ToolIntegration):
             cmd_builder.add_flag("-O")
         
         # Add script
-        if "script" in options:
+        if "script" in options and options["script"]:
             cmd_builder.add_flag("--script", options["script"])
         
         # Add timing template
-        if "timing" in options:
+        if "timing" in options and options["timing"]:
             cmd_builder.add_flag("-T", options["timing"])
         
         # Add additional arguments
@@ -95,13 +104,26 @@ class NmapIntegration(ToolIntegration):
         # Add target
         cmd_builder.add_arg(target)
         
+        # Extract timeout from options if present
+        timeout = options.get("timeout", 600)
+        
         # Run the scan
-        result = self.run(*cmd_builder.build()[1:])
+        result = self.run(*cmd_builder.build()[1:], timeout=timeout)
         
         # Save XML output if requested
         if "output_xml" in options and result.stdout:
             with open(options["output_xml"], "w") as f:
                 f.write(result.stdout)
+        
+        # Check for errors
+        if result.status == "error":
+            raise IntegrationError(f"Nmap scan failed: {result.stderr}")
+        
+        if result.status == "timeout":
+            raise IntegrationError(f"Nmap scan timed out after {timeout} seconds")
+        
+        if result.status == "parse_error":
+            raise OutputParsingError("Failed to parse Nmap output")
         
         return result.parsed_result or {}
 
@@ -114,17 +136,21 @@ class NmapIntegration(ToolIntegration):
             
         Returns:
             Parsed output as a dictionary
+            
+        Raises:
+            OutputParsingError: If parsing fails
         """
         if not stdout:
-            return {"error": "No output from Nmap"}
+            if stderr:
+                raise OutputParsingError(f"No output from Nmap: {stderr}")
+            raise OutputParsingError("No output from Nmap")
         
         try:
             return self._parse_xml(stdout)
         except ET.ParseError as e:
-            return {
-                "error": f"Failed to parse Nmap XML output: {e}",
-                "raw_output": stdout[:200] + "..." if len(stdout) > 200 else stdout
-            }
+            raise OutputParsingError(f"Failed to parse Nmap XML output: {e}")
+        except Exception as e:
+            raise OutputParsingError(f"Unexpected error parsing Nmap output: {e}")
 
     def _parse_xml(self, xml_output: str) -> Dict[str, Any]:
         """Parse Nmap XML output.
@@ -137,36 +163,42 @@ class NmapIntegration(ToolIntegration):
             
         Raises:
             ET.ParseError: If XML parsing fails
+            OutputParsingError: If output parsing fails
         """
-        root = ET.fromstring(xml_output)
-        
-        result: Dict[str, Any] = {
-            "scan_info": {},
-            "hosts": [],
-        }
-        
-        # Parse scan information
-        if scanner := root.find("./scanner"):
-            result["scan_info"]["scanner"] = scanner.get("name", "")
-            result["scan_info"]["version"] = scanner.get("version", "")
-        
-        if run_stats := root.find("./runstats/finished"):
-            result["scan_info"]["time"] = run_stats.get("time", "")
-            result["scan_info"]["elapsed"] = run_stats.get("elapsed", "")
-            result["scan_info"]["exit"] = run_stats.get("exit", "")
-            result["scan_info"]["summary"] = run_stats.get("summary", "")
-        
-        # Parse hosts
-        hosts: List[Host] = []
-        for host_elem in root.findall("./host"):
-            host = self._parse_host(host_elem)
-            if host:
-                hosts.append(host)
-        
-        # Convert Host objects to dictionaries
-        result["hosts"] = [host.dict() for host in hosts]
-        
-        return result
+        try:
+            root = ET.fromstring(xml_output)
+            
+            result: Dict[str, Any] = {
+                "scan_info": {},
+                "hosts": [],
+            }
+            
+            # Parse scan information
+            if scanner := root.find("./scanner"):
+                result["scan_info"]["scanner"] = scanner.get("name", "")
+                result["scan_info"]["version"] = scanner.get("version", "")
+            
+            if run_stats := root.find("./runstats/finished"):
+                result["scan_info"]["time"] = run_stats.get("time", "")
+                result["scan_info"]["elapsed"] = run_stats.get("elapsed", "")
+                result["scan_info"]["exit"] = run_stats.get("exit", "")
+                result["scan_info"]["summary"] = run_stats.get("summary", "")
+            
+            # Parse hosts
+            hosts: List[Host] = []
+            for host_elem in root.findall("./host"):
+                host = self._parse_host(host_elem)
+                if host:
+                    hosts.append(host)
+            
+            # Convert Host objects to dictionaries
+            result["hosts"] = [host.dict() for host in hosts]
+            
+            return result
+        except ET.ParseError as e:
+            raise ET.ParseError(f"XML parsing error: {e}")
+        except Exception as e:
+            raise OutputParsingError(f"Error parsing Nmap output: {e}")
 
     def _parse_host(self, host_elem: ET.Element) -> Optional[Host]:
         """Parse a host element from Nmap XML.
