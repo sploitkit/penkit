@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class Severity(str, Enum):
@@ -85,7 +85,8 @@ class Vulnerability(BaseModel):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
-    @validator("cvss_score")
+    @field_validator("cvss_score")
+    @classmethod
     def validate_cvss_score(cls, v: Optional[float]) -> Optional[float]:
         """Validate CVSS score.
 
