@@ -20,6 +20,11 @@ class Config:
                 "use_container": False,
                 "container_image": "instrumentisto/nmap:latest",
             },
+            "sqlmap": {
+                "path": None,
+                "use_container": False,
+                "container_image": "vulnerables/sqlmap-python3",
+            },
             # Add other tools here
         },
         "sessions": {
