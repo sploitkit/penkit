@@ -28,4 +28,4 @@ if ! poetry check 2>/dev/null; then
 fi
 
 # Run PenKit with Poetry
-poetry run python3 -m cli.main "$@"
+poetry run python3 -m penkit.cli.main "$@"

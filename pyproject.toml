@@ -7,13 +7,6 @@ license = "MIT"
 readme = "README.md"
 repository = "https://github.com/sploitkit/penkit"
 keywords = ["security", "penetration-testing", "hacking", "cybersecurity"]
-packages = [
-    { include = "cli" },
-    { include = "core" },
-    { include = "integrations" },
-    { include = "modules" },
-    { include = "utils" }
-]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Intended Audience :: Information Technology",
@@ -46,7 +39,7 @@ sphinx = "^7.2.0"
 sphinx-rtd-theme = "^1.3.0"
 
 [tool.poetry.scripts]
-penkit = "cli.main:main"
+penkit = "penkit.cli.main:main"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

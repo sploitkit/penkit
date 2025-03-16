@@ -50,14 +50,14 @@ mkdir -p ~/.penkit/sessions
 mkdir -p ~/.penkit/plugins
 
 # Make script executable
-chmod +x cli/main.py
+chmod +x penkit/cli/main.py
 
 # Create symlink if requested
 if [[ "$1" == "--link" ]]; then
     print_yellow "Creating symlink to penkit in ~/.local/bin..."
     mkdir -p ~/.local/bin
     poetry run pip install -e .
-    ln -sf $(pwd)/cli/main.py ~/.local/bin/penkit
+    ln -sf $(pwd)/penkit/cli/main.py ~/.local/bin/penkit
     chmod +x ~/.local/bin/penkit
     print_green "Symlink created. You can now run 'penkit' from anywhere."
     print_yellow "Make sure ~/.local/bin is in your PATH."
