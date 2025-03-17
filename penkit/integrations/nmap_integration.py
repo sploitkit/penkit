@@ -59,6 +59,7 @@ class NmapIntegration(ToolIntegration):
                 - service_detection: Enable service detection (-sV)
                 - os_detection: Enable OS detection (-O)
                 - script: Script to run (e.g., "default")
+                - script_scan: Enable default script scanning (-sC)
                 - timing: Timing template (e.g., 4)
                 - output_xml: Path to save XML output
                 - timeout: Timeout in seconds (default: 600)
@@ -88,6 +89,10 @@ class NmapIntegration(ToolIntegration):
         # Add OS detection
         if options.get("os_detection", False):
             cmd_builder.add_flag("-O")
+
+        # Add script scan if enabled
+        if options.get("script_scan", False):
+            cmd_builder.add_flag("-sC")
 
         # Add script
         if "script" in options and options["script"]:
@@ -185,29 +190,14 @@ class NmapIntegration(ToolIntegration):
                 result["scan_info"]["summary"] = run_stats.get("summary", "")
 
             # Parse hosts
-            hosts_data = []
+            hosts: List[Host] = []
             for host_elem in root.findall("./host"):
                 host = self._parse_host(host_elem)
                 if host:
-                    # Convert Host object to dictionary with serializable values
-                    host_dict = host.dict()
-                    # Convert datetime objects to ISO format strings
-                    if "first_seen" in host_dict:
-                        host_dict["first_seen"] = host_dict["first_seen"].isoformat() if host_dict["first_seen"] else None
-                    if "last_seen" in host_dict:
-                        host_dict["last_seen"] = host_dict["last_seen"].isoformat() if host_dict["last_seen"] else None
-                    
-                    # Process ports to make them serializable
-                    if "open_ports" in host_dict and host_dict["open_ports"]:
-                        for i, port in enumerate(host_dict["open_ports"]):
-                            # Handle any potential nested datetime objects
-                            for key, value in port.items():
-                                if hasattr(value, "isoformat"):
-                                    port[key] = value.isoformat()
-                    
-                    hosts_data.append(host_dict)
+                    hosts.append(host)
 
-            result["hosts"] = hosts_data
+            # Convert Host objects to dictionaries
+            result["hosts"] = [host.dict() for host in hosts]
 
             return result
         except ET.ParseError as e:

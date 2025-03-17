@@ -23,6 +23,8 @@ class PortScannerPlugin(PenKitPlugin):
             "timing": "4",
             "output_format": "normal",
             "service_detection": True,
+            "script_scan": False,  # Add script scan option
+            "show_only_open": False,  # Add show only open ports option
             "timeout": 600,  # 10 minutes timeout
         }
 
@@ -54,6 +56,8 @@ class PortScannerPlugin(PenKitPlugin):
         scan_type = self.options.get("scan_type")
         timing = self.options.get("timing")
         service_detection = self.options.get("service_detection")
+        script_scan = self.options.get("script_scan")  # Get script scan option
+        show_only_open = self.options.get("show_only_open")  # Get show only open option
         timeout = self.options.get("timeout")
 
         # Build scan options
@@ -62,6 +66,7 @@ class PortScannerPlugin(PenKitPlugin):
             "service_detection": service_detection,
             "timing": timing,
             "timeout": timeout,
+            "script_scan": script_scan,  # Pass script scan option
         }
 
         # Add scan type flags
@@ -73,6 +78,10 @@ class PortScannerPlugin(PenKitPlugin):
             scan_args = ["-sU"]
         else:
             scan_args = []
+            
+        # Add show only open flag if enabled
+        if show_only_open:
+            scan_args.append("--open")
 
         # Run the scan
         try:
@@ -113,6 +122,8 @@ class PortScannerPlugin(PenKitPlugin):
                             "port": port.get("port"),
                             "service": port.get("service"),
                             "protocol": port.get("protocol"),
+                            "version": port.get("version"),
+                            "banner": port.get("banner"),
                         }
                     )
 

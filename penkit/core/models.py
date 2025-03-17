@@ -1,12 +1,7 @@
 """Data models for PenKit."""
 
 from datetime import datetime
-try:
-    from datetime import UTC
-except ImportError:
-    # For Python < 3.11
-    from datetime import timezone
-    UTC = timezone.utc
+from datetime import timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
