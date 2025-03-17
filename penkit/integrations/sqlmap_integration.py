@@ -228,6 +228,17 @@ class SQLMapIntegration(ToolIntegration):
             "raw_output": stdout,
         }
 
+        # Try to find JSON in the output
+        json_match = re.search(r'({.*"data".*})', stdout, re.DOTALL)
+        if json_match:
+            try:
+                json_data = json.loads(json_match.group(1))
+                processed = self._process_json_output(json_data)
+                result.update(processed)
+                return result
+            except json.JSONDecodeError:
+                pass  # Fall back to text parsing
+
         # Try to parse stdout as text
         parsed_result = self._parse_text_output(stdout)
         result.update(parsed_result)
@@ -300,7 +311,7 @@ class SQLMapIntegration(ToolIntegration):
             logger.debug(f"Found target URL: {target_url}")
         
         # Check for vulnerabilities
-        vuln_pattern = re.compile(r"(?:Parameter|GET parameter|POST parameter|parameter) '([^']+)'.+is vulnerable to '([^']+)'")
+        vuln_pattern = re.compile(r"(?:parameter|Parameter|GET parameter|POST parameter) '([^']+)'.+(?:is vulnerable to|vulnerable to) '?([^']+)'?")
         for match in vuln_pattern.finditer(output):
             param, vuln_type = match.groups()
             

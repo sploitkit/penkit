@@ -7,7 +7,7 @@ import shlex
 import subprocess
 import tempfile
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import datetime, UTC
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -158,7 +158,7 @@ class ToolIntegration(ABC):
         cmd = self.build_command(*args)
         cmd_str = " ".join(shlex.quote(arg) for arg in cmd)
 
-        start_time = datetime.utcnow()
+        start_time = datetime.now(datetime.UTC)
 
         logger.info(f"Running command: {cmd_str}")
 
@@ -176,7 +176,7 @@ class ToolIntegration(ABC):
                     process.communicate(), timeout=timeout
                 )
 
-                end_time = datetime.utcnow()
+                end_time = datetime.now(datetime.UTC)
                 stdout_str = stdout.decode("utf-8", errors="replace")
                 stderr_str = stderr.decode("utf-8", errors="replace")
 
@@ -209,7 +209,7 @@ class ToolIntegration(ABC):
                 except:  # noqa
                     pass
 
-                end_time = datetime.utcnow()
+                end_time = datetime.now(datetime.UTC)
                 return ToolResult(
                     tool_name=self.name,
                     command=cmd_str,
@@ -223,7 +223,7 @@ class ToolIntegration(ABC):
                 )
 
         except Exception as e:
-            end_time = datetime.utcnow()
+            end_time = datetime.now(datetime.UTC)
             logger.error(f"Failed to run command: {e}")
 
             return ToolResult(

@@ -1,6 +1,6 @@
 """Data models for PenKit."""
 
-from datetime import datetime
+from datetime import datetime, UTC
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
