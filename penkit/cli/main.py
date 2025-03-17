@@ -37,7 +37,7 @@ logger = logging.getLogger("penkit")
     type=click.Path(exists=True, file_okay=False, dir_okay=True),
 )
 @click.option(
-    "--config",
+    "--config-file",
     "-c",
     default=None,
     help="Configuration file",

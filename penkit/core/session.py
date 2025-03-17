@@ -10,6 +10,8 @@ import sqlalchemy as sa
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
+from penkit.utils.json_utils import PenKitJSONEncoder
+
 Base = declarative_base()
 
 
@@ -87,7 +89,7 @@ class Session:
         """Save session metadata to disk."""
         metadata_path = self.path / "metadata.json"
         with open(metadata_path, "w") as f:
-            json.dump(self.metadata, f, indent=2)
+            json.dump(self.metadata, f, indent=2, cls=PenKitJSONEncoder)
 
     def update_metadata(self, key: str, value: Any) -> None:
         """Update session metadata.
@@ -184,8 +186,48 @@ class Session:
         timestamp = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         result_path = results_dir / f"{tool_name}_{timestamp}.json"
 
-        with open(result_path, "w") as f:
-            json.dump(result, f, indent=2)
+        try:
+            with open(result_path, "w") as f:
+                json.dump(result, f, indent=2, cls=PenKitJSONEncoder)
+        except Exception as e:
+            import logging
+            logging.getLogger("penkit").error(f"Error saving scan result: {str(e)}")
+            # Create a simplified version of the result
+            simplified_result = self._simplify_result(result)
+            with open(result_path, "w") as f:
+                json.dump(simplified_result, f, indent=2, cls=PenKitJSONEncoder)
+
+    def _simplify_result(self, result: Any) -> Any:
+        """Create a simplified version of a result for saving.
+
+        This method handles complex objects that can't be easily serialized.
+
+        Args:
+            result: The result to simplify
+
+        Returns:
+            Simplified result
+        """
+        if isinstance(result, dict):
+            return {k: self._simplify_result(v) for k, v in result.items()}
+        elif isinstance(result, list):
+            return [self._simplify_result(item) for item in result]
+        elif isinstance(result, (datetime.datetime, datetime.date)):
+            return result.isoformat()
+        elif hasattr(result, "to_dict") and callable(getattr(result, "to_dict")):
+            return result.to_dict()
+        elif hasattr(result, "__dict__"):
+            # For custom objects with __dict__, convert to dictionary
+            return {k: self._simplify_result(v) for k, v in result.__dict__.items() 
+                   if not k.startswith("_")}
+        else:
+            # Try to convert to string if not a basic type
+            if not isinstance(result, (str, int, float, bool, type(None))):
+                try:
+                    return str(result)
+                except:
+                    return "Unserializable object"
+            return result
 
     def save_artifact(self, name: str, content: str, extension: str = "txt") -> None:
         """Save an artifact to disk.

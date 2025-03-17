@@ -185,14 +185,29 @@ class NmapIntegration(ToolIntegration):
                 result["scan_info"]["summary"] = run_stats.get("summary", "")
 
             # Parse hosts
-            hosts: List[Host] = []
+            hosts_data = []
             for host_elem in root.findall("./host"):
                 host = self._parse_host(host_elem)
                 if host:
-                    hosts.append(host)
+                    # Convert Host object to dictionary with serializable values
+                    host_dict = host.dict()
+                    # Convert datetime objects to ISO format strings
+                    if "first_seen" in host_dict:
+                        host_dict["first_seen"] = host_dict["first_seen"].isoformat() if host_dict["first_seen"] else None
+                    if "last_seen" in host_dict:
+                        host_dict["last_seen"] = host_dict["last_seen"].isoformat() if host_dict["last_seen"] else None
+                    
+                    # Process ports to make them serializable
+                    if "open_ports" in host_dict and host_dict["open_ports"]:
+                        for i, port in enumerate(host_dict["open_ports"]):
+                            # Handle any potential nested datetime objects
+                            for key, value in port.items():
+                                if hasattr(value, "isoformat"):
+                                    port[key] = value.isoformat()
+                    
+                    hosts_data.append(host_dict)
 
-            # Convert Host objects to dictionaries
-            result["hosts"] = [host.dict() for host in hosts]
+            result["hosts"] = hosts_data
 
             return result
         except ET.ParseError as e:

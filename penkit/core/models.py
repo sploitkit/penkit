@@ -48,6 +48,15 @@ class Port(BaseModel):
     banner: Optional[str] = None
     notes: Optional[str] = None
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary with serializable values.
+        
+        Returns:
+            Dictionary representation
+        """
+        data = self.model_dump()
+        return data
+
 
 class Host(BaseModel):
     """Model for a host."""
@@ -64,6 +73,23 @@ class Host(BaseModel):
     first_seen: datetime = Field(default_factory=datetime.utcnow)
     last_seen: datetime = Field(default_factory=datetime.utcnow)
     metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary with serializable values.
+        
+        Returns:
+            Dictionary representation
+        """
+        data = self.model_dump()
+        
+        # Convert datetime objects
+        data["first_seen"] = data["first_seen"].isoformat()
+        data["last_seen"] = data["last_seen"].isoformat()
+        
+        # Convert nested objects
+        data["open_ports"] = [p.to_dict() for p in self.open_ports]
+        
+        return data
 
 
 class Vulnerability(BaseModel):
@@ -102,6 +128,20 @@ class Vulnerability(BaseModel):
         if v is not None and (v < 0 or v > 10):
             raise ValueError("CVSS score must be between 0 and 10")
         return v
+        
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary with serializable values.
+        
+        Returns:
+            Dictionary representation
+        """
+        data = self.model_dump()
+        
+        # Convert datetime objects
+        data["created_at"] = data["created_at"].isoformat()
+        data["updated_at"] = data["updated_at"].isoformat()
+        
+        return data
 
 
 class ScanResult(BaseModel):
@@ -136,6 +176,25 @@ class ScanResult(BaseModel):
             True if the scan is complete, False otherwise
         """
         return self.status != "running"
+        
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary with serializable values.
+        
+        Returns:
+            Dictionary representation
+        """
+        data = self.model_dump()
+        
+        # Convert datetime objects
+        data["start_time"] = data["start_time"].isoformat()
+        if data["end_time"]:
+            data["end_time"] = data["end_time"].isoformat()
+            
+        # Convert nested objects
+        data["hosts_discovered"] = [h.to_dict() for h in self.hosts_discovered]
+        data["vulnerabilities_found"] = [v.to_dict() for v in self.vulnerabilities_found]
+        
+        return data
 
 
 class Credential(BaseModel):
@@ -152,6 +211,20 @@ class Credential(BaseModel):
     source: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary with serializable values.
+        
+        Returns:
+            Dictionary representation
+        """
+        data = self.model_dump()
+        
+        # Convert datetime objects
+        data["created_at"] = data["created_at"].isoformat()
+        data["updated_at"] = data["updated_at"].isoformat()
+        
+        return data
 
 
 class ToolResult(BaseModel):
@@ -167,13 +240,13 @@ class ToolResult(BaseModel):
     stderr: Optional[str] = None
     parsed_result: Optional[Dict[str, Any]] = None
 
-    def as_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary.
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary with serializable values.
 
         Returns:
             Dictionary representation
         """
-        return {
+        result = {
             "tool_name": self.tool_name,
             "command": self.command,
             "status": self.status,
@@ -186,6 +259,7 @@ class ToolResult(BaseModel):
             "stderr": self.stderr,
             "parsed_result": self.parsed_result,
         }
+        return result
 
 
 class NetworkRange(BaseModel):
@@ -199,6 +273,23 @@ class NetworkRange(BaseModel):
     hosts: List[Host] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary with serializable values.
+        
+        Returns:
+            Dictionary representation
+        """
+        data = self.model_dump()
+        
+        # Convert datetime objects
+        data["created_at"] = data["created_at"].isoformat()
+        data["updated_at"] = data["updated_at"].isoformat()
+        
+        # Convert nested objects
+        data["hosts"] = [h.to_dict() for h in self.hosts]
+        
+        return data
 
 
 class Project(BaseModel):
@@ -216,3 +307,24 @@ class Project(BaseModel):
     notes: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary with serializable values.
+        
+        Returns:
+            Dictionary representation
+        """
+        data = self.model_dump()
+        
+        # Convert datetime objects
+        data["start_date"] = data["start_date"].isoformat()
+        if data["end_date"]:
+            data["end_date"] = data["end_date"].isoformat()
+        data["created_at"] = data["created_at"].isoformat()
+        data["updated_at"] = data["updated_at"].isoformat()
+        
+        # Convert nested objects
+        data["targets"] = [t.to_dict() for t in self.targets]
+        data["findings"] = [f.to_dict() for f in self.findings]
+        
+        return data

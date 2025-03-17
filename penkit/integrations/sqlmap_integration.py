@@ -3,12 +3,16 @@
 import json
 import os
 import re
+import tempfile
+import logging
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from penkit.core.exceptions import IntegrationError, OutputParsingError
 from penkit.core.models import Severity
 from penkit.integrations.base import CommandBuilder, ToolIntegration
 
+logger = logging.getLogger(__name__)
 
 class SQLMapIntegration(ToolIntegration):
     """Integration for the SQLmap SQL injection scanner."""
@@ -25,6 +29,25 @@ class SQLMapIntegration(ToolIntegration):
     def __init__(self) -> None:
         """Initialize the SQLmap integration."""
         super().__init__()
+        # Default to not supporting JSON output
+        self._supports_json_output = False
+        
+        # Only check capabilities if we found SQLMap
+        if self.binary_path:
+            self._check_capabilities()
+    
+    def _check_capabilities(self) -> None:
+        """Check SQLMap capabilities by testing help output."""
+        try:
+            # Check if --json-output is in the help text
+            result = self.run("--help")
+            if result.stdout and "--json-output" in result.stdout:
+                self._supports_json_output = True
+                logger.debug("SQLMap supports JSON output")
+            else:
+                logger.debug("SQLMap does not support JSON output flag")
+        except Exception as e:
+            logger.warning(f"Error checking SQLMap capabilities: {e}")
 
     def _get_version(self) -> str:
         """Get the SQLmap version.
@@ -85,14 +108,20 @@ class SQLMapIntegration(ToolIntegration):
         # Add batch mode for non-interactive execution
         cmd_builder.add_flag("--batch")
         
-        # Add JSON output format
-        cmd_builder.add_flag("--output-format", "JSON")
-        
         # Create a temporary directory for output if not specified
         output_dir = options.get("output_dir")
         if not output_dir:
-            output_dir = os.path.join(os.getcwd(), "sqlmap_output")
+            # Create directory in user's home folder to ensure write permissions
+            output_dir = os.path.join(os.path.expanduser("~"), ".penkit", "sqlmap_output")
+            os.makedirs(output_dir, exist_ok=True)
+        
+        # Add output directory flag
         cmd_builder.add_flag("--output-dir", output_dir)
+        
+        # Only add JSON output flag if supported
+        if self._supports_json_output:
+            results_json = os.path.join(output_dir, "results.json")
+            cmd_builder.add_flag("--json-output", results_json)
         
         # Add POST data if provided
         if "data" in options and options["data"]:
@@ -141,6 +170,9 @@ class SQLMapIntegration(ToolIntegration):
 
         # Extract timeout from options if present
         timeout = options.get("timeout", 600)  # Default: 10 minutes
+        
+        # Log the full command for debugging
+        logger.debug(f"Running SQLMap command: {cmd_builder.build()}")
 
         # Run the scan
         result = self.run(*cmd_builder.build()[1:], timeout=timeout)
@@ -155,7 +187,24 @@ class SQLMapIntegration(ToolIntegration):
         if result.status == "parse_error":
             raise OutputParsingError("Failed to parse SQLmap output")
 
-        return result.parsed_result or {}
+        # Try to read JSON results if available
+        if self._supports_json_output:
+            results_json = os.path.join(output_dir, "results.json")
+            if os.path.exists(results_json):
+                try:
+                    with open(results_json, 'r') as f:
+                        json_data = json.load(f)
+                        parsed_result = self._process_json_output(json_data)
+                        return parsed_result
+                except (json.JSONDecodeError, IOError) as e:
+                    logger.warning(f"Error reading JSON results: {e}")
+        
+        # Fall back to parsed output from stdout
+        if result.parsed_result:
+            return result.parsed_result
+        
+        # If all else fails, parse stdout directly
+        return self._parse_text_output(result.stdout or "")
 
     def parse_output(self, stdout: str, stderr: str) -> Dict[str, Any]:
         """Parse SQLmap output.
@@ -179,25 +228,9 @@ class SQLMapIntegration(ToolIntegration):
             "raw_output": stdout,
         }
 
-        # Check if there's a JSON output in stdout (SQLmap --output-format=JSON)
-        try:
-            # Try to find JSON content in stdout
-            json_start = stdout.find('{')
-            json_end = stdout.rfind('}')
-            
-            if json_start >= 0 and json_end > json_start:
-                json_content = stdout[json_start:json_end+1]
-                data = json.loads(json_content)
-                
-                # Process the JSON data
-                result.update(self._process_json_output(data))
-                return result
-        except json.JSONDecodeError:
-            # If we can't parse JSON, try to parse the text output
-            pass
-        
-        # Parse text output if JSON parsing failed
-        result.update(self._parse_text_output(stdout))
+        # Try to parse stdout as text
+        parsed_result = self._parse_text_output(stdout)
+        result.update(parsed_result)
         
         return result
 
@@ -247,38 +280,49 @@ class SQLMapIntegration(ToolIntegration):
         """
         result = {
             "vulnerabilities": [],
-            "summary": {},
+            "summary": {
+                "scan_time": "",
+                "vulnerabilities_found": 0,
+                "scan_completed": False,
+            },
         }
+        
+        # Log the first part of output for debugging
+        if output:
+            logger.debug(f"Parsing SQLMap output: {output[:200]}...")
+        
+        # Extract target URL
+        target_url = None
+        url_pattern = re.compile(r"URL: (https?://\S+)")
+        url_match = url_pattern.search(output)
+        if url_match:
+            target_url = url_match.group(1)
+            logger.debug(f"Found target URL: {target_url}")
         
         # Check for vulnerabilities
-        if "is vulnerable to" in output:
-            # Try to extract the vulnerability details
-            lines = output.split('\n')
-            current_url = None
+        vuln_pattern = re.compile(r"(?:Parameter|GET parameter|POST parameter|parameter) '([^']+)'.+is vulnerable to '([^']+)'")
+        for match in vuln_pattern.finditer(output):
+            param, vuln_type = match.groups()
             
-            for line in lines:
-                # Try to identify target URL
-                if line.strip().startswith("URL:"):
-                    current_url = line.strip()[4:].strip()
-                
-                # Look for vulnerability indicators
-                if "is vulnerable to" in line and current_url:
-                    vuln_type = line.strip().split("is vulnerable to")[1].strip()
-                    
-                    vulnerability = {
-                        "title": f"SQL Injection ({vuln_type})",
-                        "description": f"SQL Injection vulnerability found in {current_url}",
-                        "severity": Severity.HIGH,  # SQL injection is typically high severity
-                        "url": current_url,
-                        "type": vuln_type,
-                    }
-                    result["vulnerabilities"].append(vulnerability)
+            vulnerability = {
+                "title": f"SQL Injection ({vuln_type})",
+                "description": f"SQL Injection vulnerability found in parameter '{param}'",
+                "severity": Severity.HIGH,
+                "url": target_url if target_url else "Unknown",
+                "parameter": param,
+                "type": vuln_type,
+            }
+            result["vulnerabilities"].append(vulnerability)
         
-        # Extract basic summary
-        result["summary"] = {
-            "vulnerabilities_found": len(result["vulnerabilities"]),
-            "scan_completed": "scan completed" in output.lower(),
-        }
+        # Extract scan time
+        time_pattern = re.compile(r"scan spent ([0-9:]+)")
+        time_match = time_pattern.search(output)
+        if time_match:
+            result["summary"]["scan_time"] = time_match.group(1)
+        
+        # Update summary
+        result["summary"]["vulnerabilities_found"] = len(result["vulnerabilities"])
+        result["summary"]["scan_completed"] = "scan completed" in output.lower()
         
         return result
 
