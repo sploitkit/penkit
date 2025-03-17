@@ -44,9 +44,11 @@ logger = logging.getLogger("penkit")
     type=click.Path(exists=True, file_okay=True, dir_okay=False),
 )
 @click.option("--debug", is_flag=True, help="Enable debug mode")
+@click.option("--script-scan", is_flag=True, help="Enable default script scanning (-sC)")
+@click.option("--open-only", is_flag=True, help="Show only open ports (--open)")
 @click.version_option(package_name="penkit")
 @click.pass_context
-def main(ctx: click.Context, workdir: str, config_file: str, debug: bool) -> None:
+def main(ctx: click.Context, workdir: str, config_file: str, debug: bool, script_scan: bool, open_only: bool) -> None:
     """
     PenKit: Advanced Open-Source Penetration Testing Toolkit.
 
@@ -56,10 +58,18 @@ def main(ctx: click.Context, workdir: str, config_file: str, debug: bool) -> Non
     ctx.obj["workdir"] = workdir
     ctx.obj["config_file"] = config_file
     ctx.obj["debug"] = debug
+    ctx.obj["script_scan"] = script_scan
+    ctx.obj["open_only"] = open_only
 
     # Update configuration
     config.set("debug", debug)
     config.set("workdir", workdir)
+    
+    # Set default scan options if provided through command line
+    if script_scan:
+        config.set("scan_options.script_scan", True)
+    if open_only:
+        config.set("scan_options.show_only_open", True)
 
     if config_file:
         try:
@@ -189,6 +199,72 @@ def config_cmd(ctx: click.Context, save: bool) -> None:
                 console.print(f"{key}: {value}")
     except Exception as e:
         console.print(f"[bold red]Error: {str(e)}[/bold red]")
+        if ctx.obj["debug"]:
+            console.print_exception()
+        sys.exit(1)
+
+
+@main.command()
+@click.argument("target", required=True)
+@click.option("--ports", "-p", default="1-1000", help="Port range to scan")
+@click.option("--scan-type", "-s", default="tcp", type=click.Choice(["tcp", "syn", "udp"]), help="Scan type")
+@click.option("--service-detection", "-sV", is_flag=True, help="Enable service version detection")
+@click.option("--script-scan", "-sC", is_flag=True, help="Enable default script scanning")
+@click.option("--open-only", "--open", is_flag=True, help="Show only open ports")
+@click.option("--timing", "-T", default="4", help="Timing template (0-5)")
+@click.option("--output", "-o", help="Output file for results", type=click.Path(dir_okay=False))
+@click.pass_context
+def scan(ctx: click.Context, target: str, ports: str, scan_type: str, 
+         service_detection: bool, script_scan: bool, open_only: bool, 
+         timing: str, output: str) -> None:
+    """
+    Run a port scan against a target.
+    
+    TARGET can be an IP address, hostname, or CIDR notation.
+    """
+    try:
+        plugin_manager = PluginManager()
+        plugin_manager.discover_plugins()
+        
+        # Get the port scanner plugin
+        port_scanner = plugin_manager.get_plugin("port_scanner")
+        if not port_scanner:
+            console.print("[bold red]Port scanner module not found[/bold red]")
+            sys.exit(1)
+            
+        # Set scan options
+        port_scanner.set_option("target", target)
+        port_scanner.set_option("ports", ports)
+        port_scanner.set_option("scan_type", scan_type)
+        port_scanner.set_option("service_detection", service_detection)
+        port_scanner.set_option("script_scan", script_scan)
+        port_scanner.set_option("show_only_open", open_only)
+        port_scanner.set_option("timing", timing)
+        
+        # Run the scan
+        console.print(f"[bold]Starting port scan against {target}[/bold]")
+        result = port_scanner.run()
+        
+        # Display the result
+        if "hosts" in result:
+            host_count = len(result['hosts'])
+            console.print(f"[green]Found {host_count} host{'s' if host_count != 1 else ''}[/green]")
+            
+            # Create a shell to use its display methods
+            shell = PenKitShell(plugin_manager, workdir=ctx.obj["workdir"])
+            
+            # Process and display the result using the shell's method
+            shell._process_command("run", [])
+            
+            # Save result to file if specified
+            if output:
+                import json
+                with open(output, "w") as f:
+                    json.dump(result, f, indent=2)
+                console.print(f"[green]Results saved to {output}[/green]")
+        
+    except Exception as e:
+        console.print(f"[bold red]Error during scan: {str(e)}[/bold red]")
         if ctx.obj["debug"]:
             console.print_exception()
         sys.exit(1)

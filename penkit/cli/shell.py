@@ -312,6 +312,41 @@ class PenKitShell:
                                     table.add_row(ip, hostname or "N/A", port_str)
                                 
                                 self.console.print(table)
+                                
+                                # Add detailed port display
+                                for host in result["hosts"]:
+                                    open_ports = host.get("open_ports", [])
+                                    if open_ports:
+                                        ip = host.get("ip_address", "Unknown")
+                                        port_table = Table(title=f"Open Ports on {ip}")
+                                        port_table.add_column("Port", style="cyan")
+                                        port_table.add_column("Protocol", style="green")
+                                        port_table.add_column("State", style="yellow")
+                                        port_table.add_column("Service", style="magenta")
+                                        port_table.add_column("Version", style="blue")
+                                        
+                                        for port in open_ports:
+                                            if port.get("state") == "open":
+                                                port_table.add_row(
+                                                    str(port.get("port", "")),
+                                                    port.get("protocol", ""),
+                                                    port.get("state", ""),
+                                                    port.get("service", "") or "unknown",
+                                                    port.get("version", "") or ""
+                                                )
+                                        
+                                        self.console.print(port_table)
+                                        
+                                        # Add banner information if available
+                                        for port in open_ports:
+                                            if port.get("banner"):
+                                                banner_panel = Panel(
+                                                    port.get("banner", ""),
+                                                    title=f"Banner for Port {port.get('port')}",
+                                                    border_style="blue"
+                                                )
+                                                self.console.print(banner_panel)
+                                
                             elif "vulnerabilities" in result:
                                 vuln_count = len(result['vulnerabilities'])
                                 self.console.print(
