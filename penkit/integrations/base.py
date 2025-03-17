@@ -158,7 +158,7 @@ class ToolIntegration(ABC):
         cmd = self.build_command(*args)
         cmd_str = " ".join(shlex.quote(arg) for arg in cmd)
 
-        start_time = datetime.now(datetime.UTC)
+        start_time = datetime.now()
 
         logger.info(f"Running command: {cmd_str}")
 
